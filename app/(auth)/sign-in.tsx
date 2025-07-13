@@ -6,7 +6,6 @@ import { Link, router } from "expo-router";
 import { useState } from "react";
 import { Alert, Text, View } from 'react-native';
 
-
 const SignIn = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
     const [form, setForm] = useState({ email: '', password: '' });

@@ -1,59 +1,119 @@
+// Import necessary types and Appwrite SDK components
 import { CreateUserPrams, SignInParams } from "@/type";
-import { Account, Avatars, Client, Databases, ID, Storage } from "react-native-appwrite";
+import { Account, Avatars, Client, Databases, ID, Query, Storage } from "react-native-appwrite";
 
+// Appwrite configuration object containing all necessary IDs and settings
 export const appwriteConfig = {
+    // Appwrite server endpoint (from environment variables)
     endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT,
+    // Appwrite project ID (from environment variables)
     projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
+    // Platform identifier for the app (reverse domain notation)
     platform: "com.webjkhaled.food-project",
+    // Database ID where user data will be stored
     databaseId: '686f0aff0005819e5cb3',
+    // Storage bucket ID for file uploads
     bucketId: '68643e170015edaa95d7',
+    // Collection ID for user documents
     userCollectionId: '686f0b680039886fe20f',
+    // Collection ID for food categories
     categoriesCollectionId: '68643a390017b239fa0f',
+    // Collection ID for menu items
     menuCollectionId: '68643ad80027ddb96920',
+    // Collection ID for food customizations
     customizationsCollectionId: '68643c0300297e5abc95',
+    // Collection ID for menu-customization relationships
     menuCustomizationsCollectionId: '68643cd8003580ecdd8f' 
 }
+
+// Initialize the Appwrite client
 export const client = new Client();
 
+// Configure the client with settings from appwriteConfig
 client
-    .setEndpoint(appwriteConfig.endpoint!)
-    .setProject(appwriteConfig.projectId!)
-    .setPlatform(appwriteConfig.platform!)
+    .setEndpoint(appwriteConfig.endpoint!) // Set server URL
+    .setProject(appwriteConfig.projectId!) // Set project ID
+    .setPlatform(appwriteConfig.platform!) // Set platform identifier
 
-export const account = new Account(client);
-export const databases = new Databases(client);
-export const storage = new Storage(client);
-const avatars = new Avatars(client);
+// Initialize Appwrite services using the configured client
+export const account = new Account(client); // For user authentication
+export const databases = new Databases(client); // For database operations
+export const storage = new Storage(client); // For file storage
+const avatars = new Avatars(client); // For avatar generation (internal use)
 
+/**
+ * Creates a new user in Appwrite and stores user data in the database
+ * @param {CreateUserPrams} params - User details including email, password, and name
+ * @returns {Promise} Promise that resolves with the created user document
+ * @throws {Error} If account creation or document creation fails
+ */
 export const createUser = async ({ email, password, name }: CreateUserPrams) => {
     try {
-        const newAccount = await account.create(ID.unique(), email, password, name)
+        // Step 1: Create a new user account in Appwrite authentication
+        const newAccount = await account.create(
+            ID.unique(), // Generate unique ID for the account
+            email, 
+            password, 
+            name
+        );
+        
+        // Throw error if account creation failed
         if (!newAccount) throw new Error("Account creation failed.");
 
-
+        // Step 2: Automatically sign in the newly created user
         await signIn({ email, password });
 
+        // Step 3: Generate avatar URL using user's initials
         const avatarUrl = `${appwriteConfig.endpoint}/v1/avatars/initials?name=${encodeURIComponent(name)}&project=${appwriteConfig.projectId}`;
 
+        // Log avatar URL for debugging
+        console.log("Avatar URL:", avatarUrl);
+        console.log("Avatar URL length:", avatarUrl.length);
 
-          console.log("Avatar URL:", avatarUrl);
-          console.log("Avatar URL length:", avatarUrl.length);
-
+        // Step 4: Create a user document in the database
         return await databases.createDocument(
-            appwriteConfig.databaseId,
-            appwriteConfig.userCollectionId,
-            ID.unique(),
-            { email, name, account: newAccount.$id, avatar: avatarUrl }
-            );
+            appwriteConfig.databaseId, // Target database ID
+            appwriteConfig.userCollectionId, // Target collection ID
+            ID.unique(), // Unique document ID
+            { // Document data
+                email, 
+                name, 
+                account: newAccount.$id, // Reference to the auth account
+                avatar: avatarUrl // Generated avatar URL
+            }
+        );
     } catch (e) {
+        // Re-throw any errors with proper typing
         throw new Error(e as string);
     }
 }
 
 export const signIn = async ({ email, password }: SignInParams) => {
     try {
+        // Create email/password session in Appwrite
         const session = await account.createEmailPasswordSession(email, password);
     } catch (e) {
+        // Re-throw any errors with proper typing
+        throw new Error(e as string);
+    }
+}
+
+export const getCurrentUser = async () => {
+    try {
+        const currentAccount = await account.get();
+        if(!currentAccount) throw Error;
+
+        const currentUser = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.userCollectionId,
+            [Query.equal('accountId', currentAccount.$id)]
+        )
+
+        if(!currentUser) throw Error;
+
+        return currentUser.documents[0];
+    } catch (e) {
+        console.log(e);
         throw new Error(e as string);
     }
 }
