@@ -1,6 +1,7 @@
 // Import necessary types and Appwrite SDK components
-import { CreateUserPrams, SignInParams } from "@/type";
+import { CreateUserPrams, GetMenuParams, SignInParams } from "@/type";
 import { Account, Avatars, Client, Databases, ID, Query, Storage } from "react-native-appwrite";
+
 
 // Appwrite configuration object containing all necessary IDs and settings
 export const appwriteConfig = {
@@ -13,18 +14,19 @@ export const appwriteConfig = {
     // Database ID where user data will be stored
     databaseId: '686f0aff0005819e5cb3',
     // Storage bucket ID for file uploads
-    bucketId: '68643e170015edaa95d7',
+    bucketId: '687b9e2a002191f0d3f1',
     // Collection ID for user documents
     userCollectionId: '686f0b680039886fe20f',
     // Collection ID for food categories
-    categoriesCollectionId: '68643a390017b239fa0f',
+    categoriesCollectionId: '687b96bd0027e18c4268',
     // Collection ID for menu items
-    menuCollectionId: '68643ad80027ddb96920',
+    menuCollectionId: '687b975b001c28b5b3f3',
     // Collection ID for food customizations
-    customizationsCollectionId: '68643c0300297e5abc95',
+    customizationsCollectionId: '687b98760005bc838ef5',
     // Collection ID for menu-customization relationships
-    menuCustomizationsCollectionId: '68643cd8003580ecdd8f' 
+    menuCustomizationsCollectionId: '687b993200213f35ae9a' 
 }
+console.log("Using Appwrite endpoint:", appwriteConfig.endpoint);
 
 // Initialize the Appwrite client
 export const client = new Client();
@@ -64,7 +66,7 @@ export const createUser = async ({ email, password, name }: CreateUserPrams) => 
         await signIn({ email, password });
 
         // Step 3: Generate avatar URL using user's initials
-        const avatarUrl = `${appwriteConfig.endpoint}/v1/avatars/initials?name=${encodeURIComponent(name)}&project=${appwriteConfig.projectId}`;
+        const avatarUrl = `${appwriteConfig.endpoint}/avatars/initials?name=${encodeURIComponent(name)}&project=${appwriteConfig.projectId}`;
 
         // Log avatar URL for debugging
         console.log("Avatar URL:", avatarUrl);
@@ -106,7 +108,7 @@ export const getCurrentUser = async () => {
         const currentUser = await databases.listDocuments(
             appwriteConfig.databaseId,
             appwriteConfig.userCollectionId,
-            [Query.equal('accountId', currentAccount.$id)]
+            [Query.equal('account', currentAccount.$id)]
         )
 
         if(!currentUser) throw Error;
@@ -114,6 +116,38 @@ export const getCurrentUser = async () => {
         return currentUser.documents[0];
     } catch (e) {
         console.log(e);
+        throw new Error(e as string);
+    }
+}
+
+export const getMenu = async ({ category, query }: GetMenuParams) => {
+    try {
+        const queries: string[] = [];
+
+        if(category) queries.push(Query.equal('categories', category));
+        if(query) queries.push(Query.search('name', query));
+
+        const menus = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.menuCollectionId,
+            queries,
+        )
+
+        return menus.documents;
+    } catch (e) {
+        throw new Error(e as string);
+    }
+}
+
+export const getCategories = async () => {
+    try {
+        const categories = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.categoriesCollectionId,
+        )
+
+        return categories.documents;
+    } catch (e) {
         throw new Error(e as string);
     }
 }
