@@ -6,6 +6,14 @@ import cn from "clsx";
 import { FlatList, Text, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 
+type PaymentInfoStripeProps = {
+  label: string;
+  value: string;
+  labelStyle?: string;
+  valueStyle?: string;
+};
+
+
 const PaymentInfoStripe = ({ label,  value,  labelStyle,  valueStyle, }: PaymentInfoStripeProps) => (
     <View className="flex-between flex-row my-1">
         <Text className={cn("paragraph-medium text-gray-200", labelStyle)}>

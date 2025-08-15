@@ -82,6 +82,7 @@ interface CustomInputProps {
     label: string;
     secureTextEntry?: boolean;
     keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
+     multiline?: boolean; // ✅ Add this line
 }
 
 interface ProfileFieldProps {
