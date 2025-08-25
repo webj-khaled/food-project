@@ -1,5 +1,5 @@
 // Import necessary types and Appwrite SDK components
-import { CreateUserPrams, GetMenuParams, SignInParams } from "@/type";
+import { CreateUserParams, GetMenuParams, SignInParams } from "@/type";
 import { Account, Avatars, Client, Databases, ID, Query, Storage } from "react-native-appwrite";
 
 
@@ -27,7 +27,11 @@ export const appwriteConfig = {
     // Collection ID for menu-customization relationships
     menuCustomizationsCollectionId: '687b993200213f35ae9a',
     // Collection ID for food listings
-    food_listingId: "688955c100006a5c5b1f" 
+    food_listingId: "688955c100006a5c5b1f",
+    // Collection ID for special requests
+    special_requestsId: "68a7b41e0011a858540b",
+    // NEW: Offers collection ID
+    offersCollectionId: "68abda77002a826b775a" 
 }
 console.log("Using Appwrite endpoint:", appwriteConfig.endpoint);
 
@@ -48,47 +52,48 @@ const avatars = new Avatars(client); // For avatar generation (internal use)
 
 /**
  * Creates a new user in Appwrite and stores user data in the database
- * @param {CreateUserPrams} params - User details including email, password, and name
+ * @param {CreateUserParams} params - User details including email, password, and name
  * @returns {Promise} Promise that resolves with the created user document
  * @throws {Error} If account creation or document creation fails
  */
-export const createUser = async ({ email, password, name }: CreateUserPrams) => {
+
+
+export const createUser = async ({ email, password, name }: CreateUserParams) => {
     try {
         // Step 1: Create a new user account in Appwrite authentication
         const newAccount = await account.create(
-            ID.unique(), // Generate unique ID for the account
+            ID.unique(),
             email, 
             password, 
             name
         );
         
-        // Throw error if account creation failed
         if (!newAccount) throw new Error("Account creation failed.");
 
-        // Step 2: Automatically sign in the newly created user
-        await signIn({ email, password });
+        // REMOVE THIS LINE - Don't sign in automatically
+        // await signIn({ email, password });
 
-        // Step 3: Generate avatar URL using user's initials
+        // Step 3: Generate avatar URL
         const avatarUrl = `${appwriteConfig.endpoint}/avatars/initials?name=${encodeURIComponent(name)}&project=${appwriteConfig.projectId}`;
 
-        // Log avatar URL for debugging
-        console.log("Avatar URL:", avatarUrl);
-        console.log("Avatar URL length:", avatarUrl.length);
-
         // Step 4: Create a user document in the database
-        return await databases.createDocument(
-            appwriteConfig.databaseId, // Target database ID
-            appwriteConfig.userCollectionId, // Target collection ID
-            ID.unique(), // Unique document ID
-            { // Document data
+        const userDoc = await databases.createDocument(
+            appwriteConfig.databaseId,
+            appwriteConfig.userCollectionId,
+            ID.unique(),
+            {
                 email, 
                 name, 
-                account: newAccount.$id, // Reference to the auth account
-                avatar: avatarUrl // Generated avatar URL
+                account: newAccount.$id,
+                avatar: avatarUrl
             }
         );
+
+        console.log('User document created successfully:', userDoc);
+        return userDoc;
+
     } catch (e) {
-        // Re-throw any errors with proper typing
+        console.log('Error in createUser:', e);
         throw new Error(e as string);
     }
 }
@@ -97,8 +102,8 @@ export const signIn = async ({ email, password }: SignInParams) => {
     try {
         // Create email/password session in Appwrite
         const session = await account.createEmailPasswordSession(email, password);
+        return session;
     } catch (e) {
-        // Re-throw any errors with proper typing
         throw new Error(e as string);
     }
 }
@@ -106,6 +111,7 @@ export const signIn = async ({ email, password }: SignInParams) => {
 export const getCurrentUser = async () => {
     try {
         const currentAccount = await account.get();
+        console.log('Appwrite account:', currentAccount);
         if(!currentAccount) throw Error;
 
         const currentUser = await databases.listDocuments(
@@ -113,12 +119,13 @@ export const getCurrentUser = async () => {
             appwriteConfig.userCollectionId,
             [Query.equal('account', currentAccount.$id)]
         )
+        console.log('Database query result:', currentUser);
 
         if(!currentUser) throw Error;
 
         return currentUser.documents[0];
     } catch (e) {
-        console.log(e);
+        console.log('Error in getCurrentUser:', e);
         throw new Error(e as string);
     }
 }
@@ -171,6 +178,7 @@ export const createFoodListing = async (listing: {
   price: number;
   category?: string;
   sellerId: string;
+  location: string; // NEW FIELD
 }) => {
   try {
     // Validate required fields
@@ -189,7 +197,8 @@ export const createFoodListing = async (listing: {
         foodImage: listing.foodImage || null, // Ensure null instead of undefined
         status: 'active', // Directly active without approval
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        location: listing.location // NEW FIELD
       }
     );
 
@@ -409,6 +418,21 @@ export const getAllListings = async (filters?: {
   }
 };
 
+export const getActiveListings = async () => {
+  try {
+    return await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.food_listingId,
+      [
+        Query.equal('status', 'active'), // Only active listings
+      ]
+    );
+  } catch (error) {
+    console.error('[Appwrite] getActiveListings error:', error);
+    throw error;
+  }
+};
+
 
 export const uploadImage = async (uri: string, type: 'food' | 'certificate') => {
   try {
@@ -501,3 +525,158 @@ export const toggleListingStatus = async (listingId: string, sellerId: string) =
   }
 };
 
+
+
+// Add to your existing appwrite.ts file
+// In your lib/appwrite.ts - UPDATE these functions:
+export const createDishRequest = async (request: {
+  dish_name: string;
+  description?: string;
+  pick_up?: string;
+  delivery?: string;
+  price: number;
+  time: string;
+  date: string;
+  number: number;
+  userId: string;
+}) => {
+  try {
+    return await databases.createDocument(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      ID.unique(),
+      {
+        dish_name: request.dish_name,
+        description: request.description || '',
+        pick_up: request.pick_up || '',
+        delivery: request.delivery || '',
+        price: request.price,
+        time: request.time,
+        date: request.date,
+        number: request.number,
+        userId: request.userId,
+        status: 'active', // ADDED: Default status
+      }
+    );
+  } catch (error) {
+    console.error('[Appwrite] Create dish request error:', error);
+    throw error;
+  }
+};
+
+
+
+export const getDishRequests = async (userId: string) => {
+  try {
+    const response = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b', // Your collection ID
+      [Query.equal('userId', userId)] // Filter by userId
+    );
+    return response.documents;
+  } catch (error) {
+    console.error('[Appwrite] Get dish requests error:', error);
+    throw error;
+  }
+};
+
+
+export const toggleDishRequestStatus = async (requestId: string, currentStatus: string, userId: string) => {
+  try {
+    // First verify ownership
+    const request = await databases.getDocument(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      requestId
+    );
+
+    if (request.userId.$id !== userId ) {
+      throw new Error('permission_denied: You can only modify your own dish requests');
+    }
+
+    // Then proceed with toggle
+    return await databases.updateDocument(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      requestId,
+      {
+        status: currentStatus === 'active' ? 'inactive' : 'active',
+      }
+    );
+  } catch (error) {
+    console.error('[Appwrite] Toggle dish request status error:', error);
+    throw error;
+  }
+};
+
+
+export const deleteDishRequest = async (requestId: string, userId: string) => {
+  try {
+    // First verify ownership
+    const request = await databases.getDocument(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      requestId
+    );
+
+    if (request.userId.$id !== userId) {
+      throw new Error('permission_denied: You can only delete your own dish requests');
+    }
+
+    // Then proceed with deletion
+    return await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      requestId
+    );
+  } catch (error) {
+    console.error('[Appwrite] Delete dish request error:', error);
+    throw error;
+  }
+};
+
+
+export const getAllActiveDishRequests = async () => {
+  try {
+    const response = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      '68a7b41e0011a858540b',
+      [Query.equal('status', 'active')]
+    );
+    return response.documents;
+  } catch (error) {
+    console.error('[Appwrite] Get active dish requests error:', error);
+    throw error;
+  }
+};
+
+
+// Update the submitChefOffer function to include description:
+export const submitChefOffer = async (offer: {
+  specialRequestsId: string;
+  sellerId: string;
+  customerId: string;
+  dish_name: string;
+  description: string; // ADDED
+  pick_up?: string;
+  delivery?: string;
+  price: number;
+  time: string;
+  date: string;
+  number: number;
+}) => {
+  try {
+    return await databases.createDocument(
+      appwriteConfig.databaseId,
+      '68abda77002a826b775a', // Your new offers collection ID
+      ID.unique(),
+      {
+        ...offer,
+        offerStatus: 'pending',
+      }
+    );
+  } catch (error) {
+    console.error('[Appwrite] Submit offer error:', error);
+    throw error;
+  }
+};

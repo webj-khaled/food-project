@@ -1,10 +1,13 @@
 import { appwriteConfig, storage } from '@/lib/appwrite';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import * as FileSystem from 'expo-file-system';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ID } from 'react-native-appwrite';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 
 type FoodFormProps = {
@@ -14,6 +17,7 @@ type FoodFormProps = {
     number: string;
     price: string;
     category?: string;
+    location?: string; // NEW
     certificateImage?: string | null;
     foodImage?: string | null;
   };
@@ -23,6 +27,7 @@ type FoodFormProps = {
     number: string;
     price: number;
     category?: string;
+    location: string; // NEW
     certificateImage?: string | null;
     foodImage?: string | null;
   }) => Promise<void>;
@@ -30,6 +35,7 @@ type FoodFormProps = {
 };
 
 export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) => {
+  const insets = useSafeAreaInsets();
   const [form, setForm] = useState({
     name: initialValues?.name || '',
     description: initialValues?.description || '',
@@ -37,6 +43,7 @@ export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) =
     price: initialValues?.price || '',
     category: initialValues?.category || '',
     certificateImage: initialValues?.certificateImage || null,
+    location: initialValues?.location || '', // NEW
     foodImage: initialValues?.foodImage || null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +54,7 @@ export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) =
     console.log('Form updated:', form);
   }, [form]);    
 
- const handleImageUpload = async (type: 'food' | 'certificate') => {
+  const handleImageUpload = async (type: 'food' | 'certificate') => {
   try {
     setUploadingImageType(type);
 
@@ -111,7 +118,18 @@ export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) =
     setUploadingImageType(null);
   }
 };
-
+  const CATEGORIES = [
+      'Italian',
+      'Mexican', 
+      'Indian',
+      'Chinese',
+      'Japanese',
+      'Mediterranean',
+      'American',
+      'Vegetarian',
+      'Vegan',
+      'Gluten-Free'
+    ];
   const handleSubmit = async () => {
     // Validate required fields
     if (!form.name.trim()) {
@@ -120,6 +138,10 @@ export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) =
     }
     if (!form.description.trim()) {
       Alert.alert('Error', 'Please enter the description');
+      return;
+    }
+    if (!form.location.trim()) {
+      Alert.alert('Error', 'Please enter your location');
       return;
     }
     if (!form.price.trim()) {
@@ -150,129 +172,174 @@ export const FoodForm = ({ initialValues, onSubmit, onCancel }: FoodFormProps) =
     }
   };
 
-  return (
-    <View className="p-4">
-      <Text className="text-xl font-bold mb-4">Food Details</Text>
-      
-      {/* Food Image (Optional) */}
-      <View className="mb-4">
-        <Text className="font-medium mb-1">Food Photo (Optional)</Text>
-        <TouchableOpacity 
-          onPress={() => handleImageUpload('food')}
-          disabled={uploadingImageType === 'food'}
-          className={`border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center h-40 ${
-            uploadingImageType === 'food' ? 'opacity-50' : ''
-          }`}
-        >
-          {uploadingImageType === 'food' ? (
-            <ActivityIndicator size="small" color="#FE8C00" />
-          ) : form.foodImage ? (
-            <Image 
-              source={{ uri: form.foodImage }}
-              className="w-full h-full rounded-md"
-              resizeMode="contain"
-              
-            />
-          ) : (
-            <View className="items-center">
-              <Ionicons name="fast-food-outline" size={24} color="#9CA3AF" />
-              <Text className="text-gray-500 mt-2">Tap to add food photo(optional)</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Certificate Image (Required) */}
-      <View className="mb-4">
-        <Text className="font-medium mb-1">Chef Certificate*</Text>
-        <Text className="text-sm text-gray-500 mb-2">Upload a clear photo of your professional certification</Text>
-        <TouchableOpacity 
-          onPress={() => handleImageUpload('certificate')}
-          disabled={uploadingImageType === 'certificate'}
-          className={`border-2 rounded-lg p-4 items-center justify-center h-40 ${
-            !form.certificateImage ? 'border-dashed border-red-300 bg-red-50' : 'border-gray-200'
-          } ${uploadingImageType === 'certificate' ? 'opacity-50' : ''}`}
-        >
-          {uploadingImageType === 'certificate' ? (
-            <ActivityIndicator size="small" color="#FE8C00" />
-          ) : form.certificateImage ? (
-            <Image 
-              source={{ uri: form.certificateImage }} 
-              className="w-full h-full rounded-md"
-              resizeMode="contain"
-            />
-          ) : (
-            <View className="items-center">
-              <Ionicons name="document-attach-outline" size={24} color="#EF4444" />
-              <Text className="text-red-500 mt-2">Certificate required</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Food Name */}
-      <TextInput
-        value={form.name}
-        onChangeText={(text) => setForm({...form, name: text})}
-        placeholder="Food Name*"
-        className="border p-3 mb-3 rounded"
-      />
-      
-      {/* Description */}
-      <TextInput
-        value={form.description}
-        onChangeText={(text) => setForm({...form, description: text})}
-        placeholder="Description*"
-        multiline
-        className="border p-3 mb-3 rounded h-24"
-      />
-
-      {/* Contact Number */}
-      <TextInput
-        value={form.number}
-        onChangeText={(text) => setForm({...form, number: text})}
-        placeholder="Phone Number*"
-        keyboardType="phone-pad"
-        className="border p-3 mb-3 rounded"
-      />
-
-      {/* Price & Category Row */}
-      <View className="flex-row mb-3">
-        <TextInput
-          value={form.price}
-          onChangeText={(text) => setForm({...form, price: text})}
-          placeholder="Price*"
-          keyboardType="numeric"
-          className="border p-3 flex-1 rounded"
-        />
-        <TextInput
-          value={form.category}
-          onChangeText={(text) => setForm({...form, category: text})}
-          placeholder="Category"
-          className="border p-3 ml-2 flex-1 rounded"
-        />
-      </View>
-
-      {/* Form Actions */}
-      <View className="flex-row mt-2">
-        <TouchableOpacity
-          onPress={onCancel}
-          className="bg-gray-200 flex-1 p-3 mr-2 rounded items-center"
-        >
-          <Text>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={isSubmitting || !form.certificateImage}
-          className={`bg-primary flex-1 p-3 rounded items-center ${
-            isSubmitting || !form.certificateImage ? 'opacity-50' : ''
-          }`}
-        >
-          <Text className="text-white font-medium">
-            {isSubmitting ? 'Submitting...' : 'Submit'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+ return (
+  <ScrollView 
+    className="flex-1 bg-white"
+    contentContainerStyle={{
+      paddingTop: insets.top + 20,
+      paddingBottom: insets.bottom + 100,
+      paddingHorizontal: 16
+    }}
+    keyboardShouldPersistTaps="handled"
+  >
+    {/* Food Details Header */}
+    <View className="pt-2 pb-4">
+      <Text className="text-xl font-bold">Food Details</Text>
     </View>
-  );
-};
+    
+    {/* Food Image (Optional) */}
+    <View className="mb-4">
+      <Text className="font-medium mb-1">Food Photo (Optional)</Text>
+      <TouchableOpacity 
+        onPress={() => handleImageUpload('food')}
+        disabled={uploadingImageType === 'food'}
+        className={`border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center h-40 ${
+          uploadingImageType === 'food' ? 'opacity-50' : ''
+        }`}
+      >
+        {uploadingImageType === 'food' ? (
+          <ActivityIndicator size="small" color="#FE8C00" />
+        ) : form.foodImage ? (
+          <Image 
+            source={{ uri: form.foodImage }}
+            className="w-full h-full rounded-md"
+            resizeMode="contain"
+          />
+        ) : (
+          <View className="items-center">
+            <Ionicons name="fast-food-outline" size={24} color="#9CA3AF" />
+            <Text className="text-gray-500 mt-2">Tap to add food photo (optional)</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+
+    {/* Certificate Image (Required) */}
+    <View className="mb-4">
+      <Text className="font-medium mb-1">Chef Certificate*</Text>
+      <Text className="text-sm text-gray-500 mb-2">Upload a clear photo of your professional certification</Text>
+      <TouchableOpacity 
+        onPress={() => handleImageUpload('certificate')}
+        disabled={uploadingImageType === 'certificate'}
+        className={`border-2 rounded-lg p-4 items-center justify-center h-40 ${
+          !form.certificateImage ? 'border-dashed border-red-300 bg-red-50' : 'border-gray-200'
+        } ${uploadingImageType === 'certificate' ? 'opacity-50' : ''}`}
+      >
+        {uploadingImageType === 'certificate' ? (
+          <ActivityIndicator size="small" color="#FE8C00" />
+        ) : form.certificateImage ? (
+          <Image 
+            source={{ uri: form.certificateImage }} 
+            className="w-full h-full rounded-md"
+            resizeMode="contain"
+          />
+        ) : (
+          <View className="items-center">
+            <Ionicons name="document-attach-outline" size={24} color="#EF4444" />
+            <Text className="text-red-500 mt-2">Certificate required</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+
+    {/* Food Name */}
+    <TextInput
+      value={form.name}
+      onChangeText={(text) => setForm({...form, name: text})}
+      placeholder="Food Name*"
+      className="border p-3 mb-3 rounded"
+    />
+    
+    {/* Description */}
+    <TextInput
+      value={form.description}
+      onChangeText={(text) => setForm({...form, description: text})}
+      placeholder="Description*"
+      multiline
+      className="border p-3 mb-3 rounded h-24"
+    />
+
+    {/* Contact Number */}
+    <TextInput
+      value={form.number}
+      onChangeText={(text) => setForm({...form, number: text})}
+      placeholder="Phone Number*"
+      keyboardType="phone-pad"
+      className="border p-3 mb-3 rounded"
+    />
+
+    {/* Price & Category Row */}
+    <View className="flex-row mb-3">
+      <TextInput
+        value={form.price}
+        onChangeText={(text) => setForm({...form, price: text})}
+        placeholder="Price*"
+        keyboardType="numeric"
+        className="border p-3 flex-1 rounded"
+      />  
+    </View>
+
+    {/* Category Picker */}
+    <View className="border border-gray-300 flex-1 rounded mb-5 " style={{ height: 55, justifyContent: 'center' }}
+    >
+      <Picker
+        selectedValue={form.category}
+        onValueChange={(value) => setForm({...form, category: value})}
+        dropdownIconColor="#FE8C00"
+        mode="dropdown"
+        style={{
+          height: '100%',
+          width: '100%',
+          color: form.category ? '#000' : '#9CA3AF',
+          transform: [{ scale: 0.95 }] // Fix for Android text cutoff
+        }}
+      >
+        <Picker.Item 
+          label="Select Category" 
+          value="" 
+          enabled={false} // Makes the placeholder non-selectable
+          style={{ color: '#9CA3AF', fontSize: 14 }} 
+        />
+        {CATEGORIES.map(category => (
+          <Picker.Item
+            key={category}
+            label={category}
+            value={category}
+            style={{ fontSize: 14 }} // Consistent text size
+          />
+        ))}
+      </Picker>
+    </View>
+
+
+    {/* Location */}
+    <TextInput
+      value={form.location}
+      onChangeText={(text) => setForm({...form, location: text})}
+      placeholder="Enter your food pick-up Location in details *"
+      className="border p-3 mb-3 rounded"
+    />
+
+    {/* Form Actions */}
+    <View className="flex-row mt-2 mb-4">
+      <TouchableOpacity
+        onPress={onCancel}
+        className="bg-gray-200 flex-1 p-3 mr-2 rounded items-center"
+      >
+        <Text>Cancel</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={handleSubmit}
+        disabled={isSubmitting || !form.certificateImage}
+        className={`bg-primary flex-1 p-3 rounded items-center ${
+          isSubmitting || !form.certificateImage ? 'opacity-50' : ''
+        }`}
+      >
+        <Text className="text-white font-medium">
+          {isSubmitting ? 'Submitting...' : 'Submit'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </ScrollView>
+);
+}

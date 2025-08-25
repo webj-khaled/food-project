@@ -1,71 +1,83 @@
-import CartButton from "@/components/CartButton";
-import { images, offers } from "@/constants";
-import useAuthStore from "@/store/auth.store";
-import cn from 'clsx';
-import { Fragment } from "react";
-import { FlatList, Image, Pressable, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { PublicListingCard } from '@/components/PublicListingCard';
+import Searchbar from '@/components/SearchBar';
+import { getActiveListings } from '@/lib/appwrite';
+import { useEffect, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ADD THIS
 
+export default function Home() {
+  const insets = useSafeAreaInsets();
+  const [listings, setListings] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-export default function Index() {
-    const{user} =useAuthStore();
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { documents } = await getActiveListings();
+      setListings(documents);
+    } catch (error) {
+      console.error('Home/fetchData error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    console.log('useAuthStore', user);
-    
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-      return (
-            <SafeAreaView className="flex-1 bg-white">
-                <FlatList
-                    data={offers}
-                    renderItem={({ item, index }) => {
-                        const isEven = index % 2 === 0;
+  const filteredListings = listings.filter(listing => 
+    listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    listing.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-                        return (
-                            <View>
-                                <Pressable
-                                    className={cn("offer-card", isEven ? 'flex-row-reverse' : 'flex-row')}
-                                    style={{ backgroundColor: item.color }}
-                                
-                                >
-                                    {({ pressed }) => (
-                                        <Fragment>
-                                            <View className={"h-full w-1/2"}>
-                                              <Image source={item.image} className={"size-full"} resizeMode={"contain"} />
-                                            </View>
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
-                                            <View className={cn("offer-card__info", isEven ? 'pl-10': 'pr-10')}>
-                                                <Text className="h1-bold text-white leading-tight">
-                                                    {item.title}
-                                                </Text>
-                                                <Image
-                                                  source={images.arrowRight}
-                                                  className="size-10"
-                                                  resizeMode="contain"
-                                                  tintColor="#ffffff"
-                                                />
-                                            </View>
-                                        </Fragment>
-                                    )}
-                                </Pressable>
-                            </View>
-                        )
-                    }}
-                    contentContainerClassName="pb-28 px-5"
-                    ListHeaderComponent={() => (
-                        <View className="flex-between flex-row w-full my-5">
-                            <View className="flex-start">
-                                <Text className="small-bold text-primary">DELIVER TO</Text>
-                                <TouchableOpacity className="flex-center flex-row gap-x-1 mt-0.5">
-                                    <Text className="paragraph-bold text-dark-100">Croatia</Text>
-                                    <Image source={images.arrowDown} className="size-3" resizeMode="contain" />
-                                </TouchableOpacity>
-                            </View>
+  return (
+    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
+      <View className="px-4 pt-4 pb-2 bg-white">
+        <Searchbar 
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+        />
+      </View>
 
-                            <CartButton />
-                        </View>
-                    
-                    )}
-                />
-            </SafeAreaView>
-        );
+      <ScrollView 
+        className="flex-1 px-4"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+      >
+        <Text className="text-xl font-bold my-4">Available Listings</Text>
+        {filteredListings.length === 0 ? (
+          <Text className="text-center py-8 text-gray-500">
+            {searchQuery ? 'No matching listings found' : 'No active listings'}
+          </Text>
+        ) : (
+          filteredListings.map((listing) => {
+            const sellerName = typeof listing.sellerId === 'object' 
+              ? listing.sellerId.name 
+              : 'Seller';
+              
+            return (
+              <PublicListingCard
+                key={listing.$id}
+                title={listing.name}
+                price={listing.price}
+                description={listing.description}
+                imageUrl={listing.foodImage}
+                sellerName={sellerName}
+                className="mb-4"
+              />
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
+  );
 }

@@ -7,6 +7,8 @@ import { Dimensions, Image, ImageBackground, KeyboardAvoidingView, Platform, Scr
 export default function AuthLayout() {
 
     const { isAuthenticated } = useAuthStore();
+  console.log('AuthLayout - isAuthenticated:', isAuthenticated);
+  console.log('AuthLayout - should redirect to home:', isAuthenticated);
 
     if(isAuthenticated) return <Redirect href="/" />
 

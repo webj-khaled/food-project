@@ -1,10 +1,10 @@
-
 import { images } from '@/constants';
-import useAuthStore from '@/store/auth.store';
 import cn from 'clsx';
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import React from 'react';
 import { Image, Text, View } from 'react-native';
+
+import useAuthStore from '@/store/auth.store';
 
 // Define the props type for TabBarIcon
 type TabBarIconProps = {
@@ -24,9 +24,14 @@ const TabBarIcon = ({ focused, icon, title }: TabBarIconProps) => (
 
 
 export default function TabLayout() {
-  const {isAuthenticated} = useAuthStore();
+const {isAuthenticated} = useAuthStore();
   
-  if (!isAuthenticated) return <Redirect href="/sign-in" />;
+  // Add this useEffect
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/sign-in');
+    }
+  }, [isAuthenticated]);
   return (
         <Tabs screenOptions={{
                 headerShown: false,
@@ -53,6 +58,13 @@ export default function TabLayout() {
                 options={{
                     title: 'Home',
                     tabBarIcon: ({ focused }) => <TabBarIcon title="Home" icon={images.home} focused={focused} />
+                }}
+            />
+            <Tabs.Screen
+                name='Special'
+                options={{
+                    title: 'Special',
+                    tabBarIcon: ({ focused }) => <TabBarIcon title="Specials" icon={images.star} focused={focused} />
                 }}
             />
             <Tabs.Screen

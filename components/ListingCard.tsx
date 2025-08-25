@@ -8,6 +8,7 @@ type ListingCardProps = {
   id: string;
   title: string;
   price: number;
+  description?: string; // Optional description
   status: 'active' | 'inactive';
   imageUrl?: string;
   sellerId: string | { $id: string };
@@ -24,6 +25,7 @@ export const ListingCard = ({
   title,
   price,
   status = 'active',
+  description,
   imageUrl,
   sellerId,
   currentUserId,
