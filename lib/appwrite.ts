@@ -657,26 +657,81 @@ export const submitChefOffer = async (offer: {
   sellerId: string;
   customerId: string;
   dish_name: string;
-  description: string; // ADDED
+  description: string;
   pick_up?: string;
   delivery?: string;
   price: number;
   time: string;
   date: string;
   number: number;
+  offerStatus?: string; // ADD offerStatus to the parameter type
 }) => {
   try {
     return await databases.createDocument(
       appwriteConfig.databaseId,
-      '68abda77002a826b775a', // Your new offers collection ID
+      '68abda77002a826b775a',
       ID.unique(),
       {
         ...offer,
-        offerStatus: 'pending',
+        offerStatus: offer.offerStatus || 'pending', // Use provided status or default to 'pending'
+      }
+    );  
+  } catch (error) {
+    console.error('[Appwrite] Submit offer error:', error);
+    throw error;
+  }
+};
+
+
+export const checkExistingOffer = async (sellerId: string, specialRequestsId: string) => {
+  try {
+    console.log('Querying offers for seller:', sellerId, 'request:', specialRequestsId);
+    const response = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      '68abda77002a826b775a',
+      [
+        Query.equal('sellerId', sellerId),
+        Query.equal('specialRequestsId', specialRequestsId)
+      ]
+    );
+    
+    console.log('Query response from appwrite check existingoffer:', response.documents);
+    return response.documents[0];
+  } catch (error) {
+    console.error('[Appwrite] Check existing offer error:', error);
+    throw error;
+  }
+};
+
+export const getUserOffers = async (userId: string) => {
+  try {
+    const response = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      '68abda77002a826b775a', // Your offers collection ID
+      [Query.equal('customerId', userId)]
+    );
+    
+    console.log('User offers fetched:', response.documents);
+    return response.documents;
+  } catch (error) {
+    console.error('[Appwrite] Get user offers error:', error);
+    throw error;
+  }
+};
+
+export const updateOfferStatus = async (offerId: string, status: 'approved' | 'rejected', userId: string) => {
+  try {
+    return await databases.updateDocument(
+      appwriteConfig.databaseId,
+      '68abda77002a826b775a', // Your offers collection ID
+      offerId,
+      { 
+        offerStatus: status,
+        // You might want to add other fields like updatedAt
       }
     );
   } catch (error) {
-    console.error('[Appwrite] Submit offer error:', error);
+    console.error('[Appwrite] Update offer status error:', error);
     throw error;
   }
 };
